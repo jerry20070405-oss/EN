@@ -49,15 +49,15 @@ WORD_BANK = {
     }
 }
 
-st.set_page_config(page_title="Unit 7 & 8 中翻英單字練習", page_icon="✍️", layout="centered")
+st.set_page_config(page_title="Unit 7 & 8 單字複習系統", page_icon="✍️", layout="centered")
 
-st.title("✍️ Unit 7 & 8 中翻英單字練習")
-st.write("看中文輸入正確的英文單字，點擊側邊欄可以切換模式與單元！")
+st.title("✍️ Unit 7 & 8 單字複習系統")
+st.write("點擊側邊欄可以自由切換「看英文選中文」與「看中文拼英文」模式！")
 
 # 側邊欄設定
 st.sidebar.header("⚙️ 設定練習範圍")
 unit_choice = st.sidebar.selectbox("選擇單元", ["全部單元", "Unit 7: Energy Solutions", "Unit 8: Epic Engineering"])
-mode_choice = st.sidebar.radio("練習模式", ["看中文拼英文 (填空題)", "看中文選英文 (多選題)"])
+mode_choice = st.sidebar.radio("練習模式", ["看英文選中文 (多選題)", "看中文拼英文 (填空題)"])
 
 # 建立當前單字庫
 current_words = {}
@@ -69,7 +69,7 @@ else:
 
 word_list = list(current_words.keys())
 
-# 初始化 Session State 變數 (修正：加入 is_correct 與 wrong_ans 的初始化)
+# 初始化 Session State 變數
 if "current_question_word" not in st.session_state or st.session_state.get("prev_unit") != unit_choice:
     st.session_state.current_question_word = random.choice(word_list)
     st.session_state.prev_unit = unit_choice
@@ -91,8 +91,35 @@ def next_question():
     st.session_state.wrong_ans = ""
     st.session_state.options = []
 
-# --- 模式一：看中文拼英文 ---
-if mode_choice == "看中文拼英文 (填空題)":
+# --- 模式一：看英文選中文 (新修改) ---
+if mode_choice == "看英文選中文 (多選題)":
+    st.subheader("請選出該英文單字正確的中文意思：")
+    st.info(f"👉 英文單字：**{q_word}** ({q_info['pos']})")
+    
+    # 產生中文多選題選項
+    if not st.session_state.options:
+        correct_zh = q_info['zh']
+        # 抓取其他單字的中文作為錯誤選項
+        wrong_zhs = [current_words[w]['zh'] for w in word_list if w != q_word]
+        sampled_wrong = random.sample(wrong_zhs, min(3, len(wrong_zhs)))
+        options = sampled_wrong + [correct_zh]
+        random.shuffle(options)
+        st.session_state.options = options
+
+    # 顯示選項按鈕
+    for idx, opt in enumerate(st.session_state.options):
+        if st.button(f"✨ {opt}", key=f"btn_{opt}", use_container_width=True):
+            if not st.session_state.answered:
+                st.session_state.answered = True
+                st.session_state.total_questions += 1
+                if opt == q_info['zh']:
+                    st.success(f"🎉 答對了！\n\n📖 課本英文定義：*{q_info['def']}*")
+                    st.session_state.user_score += 1
+                else:
+                    st.error(f"❌ 答錯囉！正確答案是：**{q_info['zh']}**\n\n📖 課本英文定義：*{q_info['def']}*")
+
+# --- 模式二：看中文拼英文 ---
+else:
     st.subheader("請根據中文提示，輸入正確的英文單字：")
     st.info(f"**中文意思 ({q_info['pos']})**：{q_info['zh']}")
     st.caption(f"📖 英文課本定義：*{q_info['def']}*")
@@ -101,7 +128,7 @@ if mode_choice == "看中文拼英文 (填空題)":
     hint = f"💡 提示：字首為 '{q_word[0]}', 字尾為 '{q_word[-1]}', 總共 {len(q_word)} 個字母"
     st.caption(hint)
     
-    # 文字輸入框（使用 form 包裹，按 Enter 即可直接提交）
+    # 文字輸入框
     with st.form(key="input_form", clear_on_submit=True):
         user_input = st.text_input("請輸入英文單字：").strip().lower()
         submit_btn = st.form_submit_button("提交答案")
@@ -117,39 +144,12 @@ if mode_choice == "看中文拼英文 (填空題)":
                     st.session_state.is_correct = False
                     st.session_state.wrong_ans = user_input
 
-    # 在 Form 外面顯示結果
+    # 顯示結果
     if st.session_state.answered:
         if st.session_state.is_correct:
             st.success(f"🎉 太厲害了！完全正確：**{q_word}**")
         else:
             st.error(f"❌ 拼錯囉！你輸入的是 '{st.session_state.wrong_ans}'，正確答案是：**{q_word}**")
-
-# --- 模式二：看中文選英文 ---
-else:
-    st.subheader("請選出最符合該中文意思的英文單字：")
-    st.info(f"**中文意思 ({q_info['pos']})**：{q_info['zh']}")
-    st.caption(f"📖 英文課本定義：*{q_info['def']}*")
-    
-    # 產生多選題選項
-    if not st.session_state.options:
-        correct_word = q_word
-        wrong_words = [w for w in word_list if w != q_word]
-        sampled_wrong = random.sample(wrong_words, min(3, len(wrong_words)))
-        options = sampled_wrong + [correct_word]
-        random.shuffle(options)
-        st.session_state.options = options
-
-    # 顯示選項按鈕
-    for idx, opt in enumerate(st.session_state.options):
-        if st.button(f"✨ {opt}", key=f"btn_{opt}", use_container_width=True):
-            if not st.session_state.answered:
-                st.session_state.answered = True
-                st.session_state.total_questions += 1
-                if opt == q_word:
-                    st.success("🎉 答對了！概念很清晰喔！")
-                    st.session_state.user_score += 1
-                else:
-                    st.error(f"❌ 答錯囉！正確答案是：**{q_word}**")
 
 # --- 共用控制與計分板 ---
 st.divider()
